@@ -1,0 +1,24 @@
+{
+  "name": "nostroid-static",
+  "version": "0.1.0-dev",
+  "description": "Publish from any Nostr client and get a fast, search-friendly static website you can host anywhere.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "nostroid": "bin/nostroid.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/",
+    "sync": "node bin/nostroid.js sync",
+    "build": "node bin/nostroid.js build",
+    "watch": "node bin/nostroid.js watch",
+    "check": "node scripts/crawl-check.js dist"
+  },
+  "dependencies": {
+    "markdown-it": "15.0.3",
+    "nostr-tools": "2.26.0"
+  }
+}

@@ -1,0 +1,56 @@
+:root {
+  --bg: #fafaf8; --fg: #1b1b1b; --muted: #6b6b6b; --line: #e4e4e0; --accent: #6d3fd1;
+  --measure: 42rem;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #121212; --fg: #ececec; --muted: #9a9a9a; --line: #2a2a2a; --accent: #a98bff; }
+}
+:root[data-theme="dark"] { --bg: #121212; --fg: #ececec; --muted: #9a9a9a; --line: #2a2a2a; --accent: #a98bff; }
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+a { color: var(--accent); text-underline-offset: 2px; }
+img, video { max-width: 100%; height: auto; border-radius: 6px; }
+.skip { position: absolute; left: -999px; }
+.skip:focus { left: 1rem; top: 1rem; background: var(--bg); padding: .5rem; }
+
+.site-header, main, .site-footer { max-width: var(--measure); margin: 0 auto; padding: 0 1.25rem; }
+.site-header { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; align-items: center; padding-top: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--line); }
+.site-title { font-weight: 700; color: var(--fg); text-decoration: none; margin-right: auto; }
+.site-header nav { display: flex; gap: 1rem; }
+.site-header nav a { color: var(--muted); text-decoration: none; }
+.site-header nav a[aria-current="page"], .site-header nav a:hover { color: var(--fg); }
+.theme-toggle { background: none; border: 1px solid var(--line); color: var(--fg); border-radius: 999px; width: 2rem; height: 2rem; cursor: pointer; }
+
+main { padding-top: 2rem; padding-bottom: 3rem; }
+h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 .75rem; }
+h1 small { font-size: 1rem; color: var(--muted); font-weight: 400; }
+h2 { line-height: 1.3; }
+.section-title { font-size: .85rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-top: 2.5rem; }
+.meta { color: var(--muted); font-size: .9rem; margin: .25rem 0 0; }
+.meta a { color: inherit; }
+
+.profile .avatar { border-radius: 50%; width: 96px; height: 96px; object-fit: cover; }
+.card { padding: 1rem 0; border-bottom: 1px solid var(--line); }
+.card h2 { font-size: 1.25rem; margin: 0; }
+.card h2 a { color: var(--fg); text-decoration: none; }
+.card h2 a:hover { color: var(--accent); }
+.note { padding: 1rem 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.note p { margin: 0 0 .5rem; }
+.note-single { font-size: 1.15rem; border: 0; }
+
+.post .hero { width: 100%; margin: 1rem 0; }
+.prose { overflow-wrap: break-word; }
+.prose pre { overflow-x: auto; padding: 1rem; background: color-mix(in srgb, var(--fg) 6%, transparent); border-radius: 6px; }
+.prose code { font-size: .9em; }
+.prose blockquote { margin: 1rem 0; padding-left: 1rem; border-left: 3px solid var(--line); color: var(--muted); }
+.prose table { border-collapse: collapse; width: 100%; display: block; overflow-x: auto; }
+.prose th, .prose td { border: 1px solid var(--line); padding: .4rem .6rem; text-align: left; }
+.tags span { color: var(--muted); margin-right: .5rem; font-size: .9rem; }
+
+.links ul { padding-left: 1.1rem; }
+.pager { display: flex; justify-content: space-between; margin-top: 2rem; color: var(--muted); font-size: .9rem; }
+.site-footer { border-top: 1px solid var(--line); padding-top: 1rem; padding-bottom: 2rem; color: var(--muted); font-size: .9rem; }
+.site-footer a { color: inherit; }

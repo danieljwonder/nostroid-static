@@ -2,15 +2,13 @@
 export default {
   pubkey: "",                       // npub1... or hex
   relays: ["wss://relay.damus.io", "wss://nos.lol"],
-  site: { title: "", description: "", url: "https://example.com", lang: "en", image: "" },
-  nav: [
-    { label: "Home", href: "/" },
-    { label: "Blog", href: "/blog/" },
-    { label: "Links", href: "/links/" }
-  ],
-  features: { notes: true, longform: true, links: true, podcast: false },
-  notes: { indexMinChars: 280 },    // shorter notes are listed but noindex
+  outbox: true,                     // also read the write relays from your NIP-65 relay list
+  site: { title: "", description: "", url: "https://example.com/", lang: "en", image: "" },
+  nav: null,                        // null = generated from your content; or [{ label, href }]
+  features: { notes: true, longform: true, links: true, replies: false },
+  notes: { indexMinChars: 280 },    // shorter notes are listed but marked noindex
   pageSize: 20,
   poweredBy: true,
-  deploy: ""                        // optional shell command run by `watch` after build
+  publicDir: "public",              // copied verbatim into the build, e.g. public/.well-known/nostr.json
+  deploy: ""                        // optional shell command `watch` runs after each build
 };

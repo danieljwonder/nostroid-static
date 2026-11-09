@@ -2,3 +2,8 @@ node_modules/
 dist/
 .env
 *.local.js
+
+# Your site (keep these in your own site repo, not this tool repo)
+nostroid.config.js
+content/
+public/
