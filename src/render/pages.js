@@ -23,17 +23,55 @@ ${renderNote(n.content)}
 </article>`;
 }
 
-function pager(base, pageNo, pages, urls) {
-  if (pages <= 1) return '';
-  const at = i => (i === 1 ? base : `${base}page/${i}/`);
-  const prev = pageNo > 1 ? `<a rel="prev" href="${esc(urls.href(at(pageNo - 1)))}">← Newer</a>` : '<span></span>';
-  const next = pageNo < pages ? `<a rel="next" href="${esc(urls.href(at(pageNo + 1)))}">Older →</a>` : '<span></span>';
-  return `<nav class="pager" aria-label="Pagination">${prev}<span>Page ${pageNo} of ${pages}</span>${next}</nav>`;
+/**
+ * Stable pagination. Archive pages are numbered from the OLDEST item, so once a page is
+ * full its content and URL never change: publishing one note touches the index page,
+ * not every archive page. The index (`base`) always shows the newest `size` items.
+ * Page k holds items [(k-1)*size, k*size) counted from the oldest; a page is only created
+ * once it has fully dropped off the index, so no page duplicates the index.
+ *
+ * Returns [{ path, items (newest first), newer, older, label }].
+ */
+export function stablePages(itemsNewestFirst, size, base) {
+  const total = itemsNewestFirst.length;
+  const oldestFirst = [...itemsNewestFirst].reverse();
+  const last = Math.max(0, Math.ceil(total / size) - 1); // highest archive page number
+  const at = k => (k > last || k < 1 ? null : `${base}page/${k}/`);
+  const out = [{ path: base, items: itemsNewestFirst.slice(0, size), newer: null, older: at(last), label: '' }];
+  for (let k = last; k >= 1; k--) {
+    out.push({
+      path: at(k),
+      items: oldestFirst.slice((k - 1) * size, k * size).reverse(),
+      newer: k === last ? base : at(k + 1),
+      older: at(k - 1),
+      label: `page ${k}`
+    });
+  }
+  return out;
 }
 
-function paginate(items, size) {
-  const pages = Math.max(1, Math.ceil(items.length / size));
-  return Array.from({ length: pages }, (_, i) => items.slice(i * size, (i + 1) * size));
+function pager(p, urls) {
+  if (!p.newer && !p.older) return '';
+  const newer = p.newer ? `<a rel="prev" href="${esc(urls.href(p.newer))}">← Newer</a>` : '<span></span>';
+  const older = p.older ? `<a rel="next" href="${esc(urls.href(p.older))}">Older →</a>` : '<span></span>';
+  return `<nav class="pager" aria-label="Pagination">${newer}${older}</nav>`;
+}
+
+function archivePages(ctx, items, base, name, card) {
+  return stablePages(items, ctx.config.pageSize, base).map(p => ({
+    path: p.path,
+    indexable: true,
+    lastmod: Math.max(...p.items.map(i => i.updated)),
+    html: page({
+      ...ctx,
+      path: p.path,
+      title: p.label ? `${name}, ${p.label}` : name,
+      ld: { '@type': 'CollectionPage', url: ctx.urls.abs(p.path) },
+      prev: p.newer,
+      next: p.older,
+      body: `<h1>${name}${p.label ? ` <small>${p.label}</small>` : ''}</h1>\n${p.items.map(card).join('\n')}\n${pager(p, ctx.urls)}`
+    })
+  }));
 }
 
 /** Returns [{ path, html, indexable, lastmod }] for every page on the site. */
@@ -57,13 +95,7 @@ ${model.notes.length ? `<section><h2 class="section-title">Recent notes</h2>${mo
 
   // Blog archive + posts
   if (model.posts.length) {
-    const chunks = paginate(model.posts, config.pageSize);
-    chunks.forEach((items, i) => {
-      const n = i + 1;
-      const path = n === 1 ? '/blog/' : `/blog/page/${n}/`;
-      const body = `<h1>Blog${n > 1 ? ` <small>page ${n}</small>` : ''}</h1>\n${items.map(p => postCard(p, urls)).join('\n')}\n${pager('/blog/', n, chunks.length, urls)}`;
-      out.push({ path, indexable: true, lastmod: items[0].updated, html: page({ ...ctx, path, title: n > 1 ? `Blog, page ${n}` : 'Blog', ld: { '@type': 'CollectionPage', url: urls.abs(path) }, prev: n > 1 ? (n === 2 ? '/blog/' : `/blog/page/${n - 1}/`) : null, next: n < chunks.length ? `/blog/page/${n + 1}/` : null, body }) });
-    });
+    out.push(...archivePages(ctx, model.posts, '/blog/', 'Blog', p => postCard(p, urls)));
     for (const p of model.posts) {
       const description = p.summary || truncate(p.content.replace(/[#*_>`\[\]()!-]/g, ' '), 160);
       const body = `<article class="post">
@@ -79,13 +111,7 @@ ${p.topics.length ? `<p class="tags">${p.topics.map(t => `<span>#${esc(t)}</span
 
   // Notes archive + notes
   if (model.notes.length) {
-    const chunks = paginate(model.notes, config.pageSize);
-    chunks.forEach((items, i) => {
-      const n = i + 1;
-      const path = n === 1 ? '/notes/' : `/notes/page/${n}/`;
-      const body = `<h1>Notes${n > 1 ? ` <small>page ${n}</small>` : ''}</h1>\n${items.map(x => noteCard(x, urls)).join('\n')}\n${pager('/notes/', n, chunks.length, urls)}`;
-      out.push({ path, indexable: true, lastmod: items[0].updated, html: page({ ...ctx, path, title: n > 1 ? `Notes, page ${n}` : 'Notes', ld: { '@type': 'CollectionPage', url: urls.abs(path) }, prev: n > 1 ? (n === 2 ? '/notes/' : `/notes/page/${n - 1}/`) : null, next: n < chunks.length ? `/notes/page/${n + 1}/` : null, body }) });
-    });
+    out.push(...archivePages(ctx, model.notes, '/notes/', 'Notes', x => noteCard(x, urls)));
     for (const n of model.notes) {
       const title = noteTitle(n);
       const description = truncate(n.text, 160) || title;

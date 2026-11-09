@@ -46,6 +46,7 @@ try {
   } else if (cmd === 'build') {
     const b = await build({ config, store, outDir });
     console.log(`built ${b.pages} pages (${b.indexed} indexed): ${b.posts} posts, ${b.notes} notes, ${b.linkSets} link sets -> ${b.outDir}`);
+    console.log(`${b.changed.length} of ${b.files} files changed, ${b.removed.length} removed${b.changed.length && b.changed.length <= 10 ? ': ' + b.changed.join(', ') : ''}`);
   } else if (cmd === 'watch') {
     await watch({ config, store, outDir });
   } else {

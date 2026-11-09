@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildModel, slugify } from '../src/model.js';
+import { stablePages } from '../src/render/pages.js';
 import { keypair, sign, config } from './helpers.js';
 
 test('slugify', () => {
@@ -53,4 +54,24 @@ test('random client-generated d-tags fall back to the title for the URL', () => 
   assert.equal(r.model.posts[0].path, '/how-i-publish-my-site/');
   const r2 = buildModel([sign(me.sk, 30023, 'x', [['d', 'Hello-World-g7vqz9'], ['title', 'Hello']])], config(me.pk), {});
   assert.equal(r2.model.posts[0].path, '/hello-world-g7vqz9/');
+});
+
+test('stable pagination: full archive pages never change as items are added', () => {
+  const size = 3;
+  let prev = null;
+  for (let total = 1; total <= 40; total++) {
+    const items = Array.from({ length: total }, (_, i) => total - i); // newest first: total..1
+    const pages = stablePages(items, size, '/n/');
+    // every item reachable; archive pages are always full
+    const seen = new Set(pages.flatMap(p => p.items));
+    assert.equal(seen.size, total);
+    for (const p of pages.slice(1)) assert.equal(p.items.length, size);
+    // an archive page, once it exists, keeps exactly the same items
+    if (prev) for (const p of prev.slice(1)) {
+      const now = pages.find(q => q.path === p.path);
+      assert.ok(now, `${p.path} disappeared at total=${total}`);
+      assert.deepEqual(now.items, p.items);
+    }
+    prev = pages;
+  }
 });

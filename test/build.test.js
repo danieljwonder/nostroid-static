@@ -49,7 +49,7 @@ test('sitemap includes indexable pages only; short notes are noindex', async () 
   const longNote = f.events.find(e => e.content.startsWith('A longer'));
   assert.ok(!sm.includes(shortNote.id.slice(0, 16)));
   assert.ok(sm.includes(longNote.id.slice(0, 16)));
-  assert.ok(sm.includes('https://example.com/blog/page/2/'));
+  assert.ok(sm.includes('https://example.com/blog/page/1/'));
   const shortHtml = await fs.readFile(path.join(f.out, `notes/${shortNote.id.slice(0, 16)}/index.html`), 'utf8');
   assert.match(shortHtml, /<meta name="robots" content="noindex, follow">/);
   assert.match(await fs.readFile(path.join(f.out, 'robots.txt'), 'utf8'), /Sitemap: https:\/\/example.com\/sitemap.xml/);
@@ -106,4 +106,25 @@ test('broken links inside the author content are warnings, not failures', async 
   assert.deepEqual(r.errors, []);
   assert.equal(r.warnings.length, 1);
   assert.match(r.warnings[0], /\/old-page\//);
+});
+
+test('one new note changes only a handful of files, never older archive pages', async () => {
+  const f = await fixture();
+  // 9 more long notes -> 11 notes, pageSize 2: index + archive pages 1..5
+  const base = 5000;
+  const extra = Array.from({ length: 9 }, (_, i) => sign(f.me.sk, 1, `Note number ${i} `.repeat(25), [], base + i));
+  await f.store.apply(extra, f.me.pk);
+  await build({ config: f.cfg, store: f.store, outDir: f.out });
+  const pagesBefore = {};
+  for (let k = 1; k <= 5; k++) pagesBefore[k] = await fs.readFile(path.join(f.out, `notes/page/${k}/index.html`), 'utf8').catch(() => null);
+  await f.store.apply([sign(f.me.sk, 1, 'just a quick thought', [], base + 100)], f.me.pk);
+  const r = await build({ config: f.cfg, store: f.store, outDir: f.out });
+  const archive = r.changed.filter(c => c.startsWith('notes/page/'));
+  // 12 notes / size 2 -> highest page goes 5 -> 5 (ceil(12/2)-1); nothing older may change
+  assert.deepEqual(archive, [], `archive pages rewritten: ${archive}`);
+  assert.ok(r.changed.length <= 5, `too many changed: ${r.changed}`);
+  assert.ok(r.changed.includes('notes/index.html'));
+  assert.ok(r.changed.includes('index.html'));
+  const again = await build({ config: f.cfg, store: f.store, outDir: f.out });
+  assert.deepEqual(again.changed, []);
 });
