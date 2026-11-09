@@ -1,0 +1,4 @@
+{
+  "names": { "_": "<your-hex-pubkey>" },
+  "relays": { "<your-hex-pubkey>": ["wss://relay.example.com"] }
+}
