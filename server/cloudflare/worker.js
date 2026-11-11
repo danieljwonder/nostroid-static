@@ -20,8 +20,8 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (request.method === 'POST' && url.pathname === '/_refresh') {
-      const auth = request.headers.get('authorization') || '';
-      if (!env.REFRESH_SECRET || auth !== `Bearer ${env.REFRESH_SECRET}`) return new Response(null, { status: 404 });
+      const key = request.headers.get('x-nostroid-refresh') || '';
+      if (!env.REFRESH_SECRET || key.length !== env.REFRESH_SECRET.length || key !== env.REFRESH_SECRET) return new Response(null, { status: 404 });
       return env.SITE.getByName('site').fetch(new Request(url.origin + '/_refresh', { method: 'POST' }));
     }
     if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405, headers: { allow: 'GET, HEAD' } });

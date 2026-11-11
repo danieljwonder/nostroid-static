@@ -71,7 +71,7 @@ export class Relay extends DurableObject {
 
   async ping(env, e) {
     try {
-      await fetch(env.ON_EVENT_URL, { method: 'POST', headers: { 'content-type': 'application/json', ...(env.ON_EVENT_SECRET ? { authorization: `Bearer ${env.ON_EVENT_SECRET}` } : {}) }, body: JSON.stringify({ id: e.id, kind: e.kind, pubkey: e.pubkey }) });
+      await fetch(env.ON_EVENT_URL, { method: 'POST', headers: { 'content-type': 'application/json', ...(env.ON_EVENT_SECRET ? { 'x-nostroid-refresh': env.ON_EVENT_SECRET } : {}) }, body: JSON.stringify({ id: e.id, kind: e.kind, pubkey: e.pubkey }) });
     } catch {}
   }
 }

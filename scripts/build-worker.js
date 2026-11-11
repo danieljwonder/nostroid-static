@@ -19,7 +19,7 @@ const rawPlugin = {
   }
 };
 await build({
-  entryPoints: [path.join(root, entries[which])], bundle: true, format: 'esm', platform: 'browser', target: 'es2022', minify: false,
+  entryPoints: [path.join(root, entries[which])], bundle: true, format: 'esm', platform: 'browser', target: 'es2022', minify: true,
   outfile, external: ['cloudflare:workers'], loader: { '.css': 'text' }, plugins: [rawPlugin], legalComments: 'none'
 });
 const size = (await fs.stat(outfile)).size;
