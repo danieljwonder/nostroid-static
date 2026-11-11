@@ -7,3 +7,4 @@ dist/
 nostroid.config.js
 content/
 public/
+.probe/

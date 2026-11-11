@@ -20,5 +20,8 @@
   "dependencies": {
     "markdown-it": "15.0.3",
     "nostr-tools": "2.26.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
   }
 }
