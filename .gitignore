@@ -8,3 +8,5 @@ nostroid.config.js
 content/
 public/
 .probe/
+dist-browser/
+dist-worker/

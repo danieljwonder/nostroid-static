@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loading…</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="./assets/styles.css">
+</head>
+<body>
+<div id="app"><main id="main"><p id="status" class="meta">Loading…</p></main></div>
+<script type="module">
+  import { start } from './assets/app.js';
+  import config from './nostroid.config.js';
+  start(config);
+</script>
+<script src="./assets/theme.js" defer></script>
+</body>
+</html>

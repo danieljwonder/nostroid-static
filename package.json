@@ -1,21 +1,16 @@
 {
   "name": "nostroid-static",
-  "version": "0.1.0-dev",
-  "description": "Publish from any Nostr client and get a fast, search-friendly static website you can host anywhere.",
+  "version": "0.2.0-dev",
+  "description": "Nostr is your CMS. A site that never changes, reading your relays. Optional server layer for speed and SEO.",
   "type": "module",
   "license": "MIT",
-  "bin": {
-    "nostroid": "bin/nostroid.js"
-  },
-  "engines": {
-    "node": ">=20"
-  },
+  "engines": { "node": ">=22" },
   "scripts": {
-    "test": "node --test test/",
-    "sync": "node bin/nostroid.js sync",
-    "build": "node bin/nostroid.js build",
-    "watch": "node bin/nostroid.js watch",
-    "check": "node scripts/crawl-check.js dist"
+    "test": "node --test test/core.test.js test/relay.test.js test/server.test.js",
+    "build:browser": "node scripts/build-browser.js",
+    "build:site-worker": "node scripts/build-worker.js site",
+    "build:relay-worker": "node scripts/build-worker.js relay",
+    "check": "node scripts/crawl-check.js"
   },
   "dependencies": {
     "markdown-it": "15.0.3",
