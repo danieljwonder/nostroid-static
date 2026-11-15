@@ -1,6 +1,9 @@
 import { verifyEvent } from 'nostr-tools/pure';
 import { wellFormed, isReplaceable, isAddressable, dTag } from '../core/events.js';
 
+/** NIP-01: ephemeral events are relayed to live subscribers but never stored. */
+export const isEphemeral = kind => kind >= 20000 && kind < 30000;
+
 export const MAX_EVENT_BYTES = 64 * 1024;
 export const MAX_SUBS_PER_CONN = 20;
 export const MAX_FILTER_LIMIT = 500;
@@ -17,12 +20,20 @@ CREATE INDEX IF NOT EXISTS tag_lookup ON tags(name, value);
 CREATE TABLE IF NOT EXISTS deleted (id TEXT PRIMARY KEY);
 `;
 
+// Idempotent cleanup for stores written before ephemeral handling existed.
+const PURGE_EPHEMERAL = 'DELETE FROM events WHERE kind >= 20000 AND kind < 30000';
+
 /**
  * Relay storage over any SQLite that exposes exec(sql, ...params) -> rows[] (Durable Objects
  * `sql.exec(...).toArray()`, or node:sqlite in tests).
  */
 export class RelayStore {
-  constructor(exec) { this.exec = exec; this.exec(SCHEMA); }
+  constructor(exec) {
+    this.exec = exec;
+    this.exec(SCHEMA);
+    this.exec(PURGE_EPHEMERAL);
+    this.exec('DELETE FROM tags WHERE event_id NOT IN (SELECT id FROM events)');
+  }
 
   has(id) { return this.exec('SELECT 1 FROM events WHERE id = ?', id).length > 0; }
   isDeleted(id) { return this.exec('SELECT 1 FROM deleted WHERE id = ?', id).length > 0; }
@@ -150,6 +161,7 @@ export class RelayHandler {
     if (!this.allowed.has(e.pubkey)) return ok(e.id, false, 'restricted: this relay only accepts events from its owner');
     if (e.created_at > this.now() + 900) return ok(e.id, false, 'invalid: created_at is in the future');
     if (!this.verify(e)) return ok(e.id, false, 'invalid: bad signature');
+    if (isEphemeral(e.kind)) { ok(e.id, true, ''); this.broadcast(e); return; }
     const r = this.store.insert(e);
     if (r === 'stored') {
       ok(e.id, true, '');

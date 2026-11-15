@@ -102,3 +102,23 @@ test('matches() mirrors SQL filter semantics', () => {
   assert.ok(!matches({ '#t': ['zzz'] }, e));
   assert.ok(!matches({ until: 999 }, e));
 });
+
+test('ephemeral events (20000-29999) are broadcast but never stored; old ones are purged on startup', () => {
+  const me = keypair();
+  const sql = memorySql();
+  // simulate an older relay that stored one
+  sql(`CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, pubkey TEXT NOT NULL, kind INTEGER NOT NULL, created_at INTEGER NOT NULL, d TEXT, raw TEXT NOT NULL)`);
+  const old = sign(me.sk, 24133, 'ciphertext', [], 100);
+  sql('INSERT INTO events (id, pubkey, kind, created_at, d, raw) VALUES (?, ?, ?, ?, ?, ?)', old.id, old.pubkey, old.kind, old.created_at, null, JSON.stringify(old));
+  const store = new RelayStore(sql);
+  assert.equal(store.count(), 0, 'startup purge removed the stored ephemeral event');
+  const handler = new RelayHandler(store, { allowed: new Set([me.pk]), now: () => 2_000_000_000 });
+  const sub = conn(); handler.open(sub);
+  handler.message(sub, JSON.stringify(['REQ', 'live', { kinds: [24133] }]));
+  const w = conn(); handler.open(w);
+  const e = sign(me.sk, 24133, 'rpc', []);
+  handler.message(w, JSON.stringify(['EVENT', e]));
+  assert.deepEqual(w.out.at(-1), ['OK', e.id, true, '']);
+  assert.equal(sub.out.filter(m => m[0] === 'EVENT').length, 1, 'live subscriber received it');
+  assert.equal(store.count(), 0, 'not stored');
+});
