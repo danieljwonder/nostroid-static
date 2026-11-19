@@ -12,8 +12,8 @@ await fs.mkdir(path.join(out, 'assets'), { recursive: true });
 await build({ entryPoints: [path.join(root, 'browser/app.js')], bundle: true, format: 'esm', platform: 'browser', minify: true, target: 'es2022', outfile: path.join(out, 'assets/app.js') });
 await fs.copyFile(path.join(root, 'browser/index.html'), path.join(out, 'index.html'));
 await fs.copyFile(path.join(root, 'browser/index.html'), path.join(out, '404.html'));
-await fs.copyFile(path.join(root, 'src/assets/styles.css'), path.join(out, 'assets/styles.css'));
-await fs.copyFile(path.join(root, 'src/assets/theme.js'), path.join(out, 'assets/theme.js'));
+await fs.copyFile(path.join(root, 'core/assets/styles.css'), path.join(out, 'assets/styles.css'));
+await fs.copyFile(path.join(root, 'core/assets/theme.js'), path.join(out, 'assets/theme.js'));
 await fs.copyFile(path.join(root, 'nostroid.config.example.js'), path.join(out, 'nostroid.config.example.js'));
 const cfg = path.join(root, 'nostroid.config.js');
 try { await fs.copyFile(cfg, path.join(out, 'nostroid.config.js')); } catch { await fs.copyFile(path.join(root, 'nostroid.config.example.js'), path.join(out, 'nostroid.config.js')); }

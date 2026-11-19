@@ -4,8 +4,8 @@ import { reduceEvents, outboxRelays } from '../../core/events.js';
 import { makeRelayClient, fetchAuthor } from '../../core/relay.js';
 import { respond } from '../../core/site.js';
 import { SiteStore } from './store.js';
-import STYLES from '../../src/assets/styles.css';
-import THEME from '../../src/assets/theme.js?raw';
+import STYLES from '../../core/assets/styles.css';
+import THEME from '../../core/assets/theme.js?raw';
 
 function siteConfig(env) {
   return resolveConfig(JSON.parse(env.SITE_CONFIG));

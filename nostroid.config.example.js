@@ -1,4 +1,5 @@
-// Copy to nostroid.config.js and fill in.
+// Browser mode: copy to dist-browser/nostroid.config.js.
+// Server layer: pass the same object as a JSON string in the SITE_CONFIG binding.
 export default {
   pubkey: "",                       // npub1... or hex
   relays: ["wss://relay.damus.io", "wss://nos.lol"],
@@ -6,9 +7,7 @@ export default {
   site: { title: "", description: "", url: "https://example.com/", lang: "en", image: "" },
   nav: null,                        // null = generated from your content; or [{ label, href }]
   features: { notes: true, longform: true, links: true, replies: false },
-  notes: { indexMinChars: 280 },    // shorter notes are listed but marked noindex
-  pageSize: 20,
-  poweredBy: true,
-  publicDir: "public",              // copied verbatim into the build, e.g. public/.well-known/nostr.json
-  deploy: ""                        // optional shell command `watch` runs after each build
+  notes: { indexMinChars: 280, perPage: 20 },   // shorter notes are listed but marked noindex
+  refreshSeconds: 120,              // server layer: how stale the cache may get before a background refresh
+  poweredBy: true                   // "Powered by Nostroid" footer link
 };

@@ -1,17 +1,37 @@
 # Architecture
 
-## Pipeline
+```
+                 ┌──────────── Nostr relays: the source of truth ─────────────┐
+                 │   your own relay (optional, owner-only writes) + outbox     │
+                 └────────────────┬──────────────────────────────┬────────────┘
+         BROWSER MODE             │                              │   SERVER LAYER (optional)
+  static files on any host  ◀─────┘                              └────▶  Worker + Durable Object cache
+  renders in the browser                                                renders HTML at request time
+```
 
-1. **sync** (`src/source/`): fetches events from the configured relays (or a personal relay), verifies signatures, removes duplicates, keeps only the latest version of replaceable and addressable events, and writes them to `content/events/<id>.json`.
-2. **build** (`src/model/` then `src/render/`): reads only the store, never the network. Events become normalised models, and pure functions render them to HTML strings. Same input, same output.
-3. **watch** (`src/cli/watch.js`): subscribes to the author's pubkey, debounces bursts of new events, then runs sync, build and the deploy command.
+## `core/` (isomorphic)
 
-The browser never renders content. Client JavaScript is optional enhancement only.
+No Node-only APIs. Runs unchanged in the browser, in a Worker and under `node --test`.
 
-## Personal relay mode (optional)
+- `config.js`: validates and normalises the config (npub → hex, trailing slashes, defaults).
+- `relay.js`: relay client over an injected `connect(url)` so the browser's `WebSocket` and the Worker's `fetch` + `Upgrade: websocket` share one implementation. Timeouts, dedupe, EOSE handling.
+- `events.js`: signature verification, replaceable/addressable reduction, NIP-09 deletions, NIP-65 outbox extraction.
+- `model.js`: events → content model (profile, posts, notes by month, links). Slugs are deterministic from the event set, so there is no slug file to keep.
+- `render/`: pure functions from model to HTML strings. `routes.js` maps a path to a page; `layout.js` holds the SEO contract (title, description, canonical, Open Graph, JSON-LD) in one place.
+- `site.js`: `respond(events, config, path)` → `{ status, contentType, body }`. The single entry point both runtimes call.
 
-The relay list in the config can point at a relay you run yourself. Recommended policy: only accept writes signed by your own pubkey, and list the relay in your NIP-65 relay list. In this mode the relay is the canonical home for your events and `watch` subscribes to it. Nostroid Static does not ship relay software. Use an existing relay that can enforce an owner-only write policy.
+## `browser/`
 
-## SEO contract
+`index.html` + `app.js` (bundled by esbuild). Loads `nostroid.config.js`, fetches events, verifies, calls `respond()` and injects the body. Hash routing (`#/notes/2026/11/`) so it works on hosts without rewrite rules, including IPFS gateways.
 
-Every URL is served as complete HTML containing its title, meta description, canonical link, Open Graph tags and JSON-LD. URLs stay stable. Long-form posts (kind 30023) use the `d` tag as the slug. Notes use the event id. Podcast episodes have their slug fixed in `content/slugs.json` on first build.
+## `server/cloudflare/`
+
+Worker in front of one Durable Object per site (`SiteCache`, SQLite). Request → edge cache (≤60 s, stale-while-revalidate) → DO renders from stored events. If the last sync is older than `refreshSeconds` the DO serves immediately and refreshes in the background; the first request blocks. `POST /_refresh` with the shared secret forces a refresh (your relay calls it).
+
+## `relay/`
+
+`core.js` is the protocol and storage, tested locally against `node:sqlite`. `cloudflare/worker.js` wraps it in a Durable Object with WebSocket hibernation, so idle connections cost nothing. Writes are allowlisted by pubkey and signature-verified; reads are open. Ephemeral kinds (20000–29999) are broadcast to live subscribers and never stored.
+
+## Testing
+
+`node --test test/`. The SQLite-backed stores take an `exec(sql, ...params) → rows[]` adapter, satisfied by `ctx.storage.sql` in production and `node:sqlite` in tests. No wrangler or miniflare required.
