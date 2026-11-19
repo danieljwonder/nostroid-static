@@ -1,6 +1,22 @@
 import { DurableObject } from 'cloudflare:workers';
 import { RelayStore, RelayHandler, relayInfo } from '../core.js';
 
+/**
+ * Sites to notify when an event is stored. Either the single ON_EVENT_URL / ON_EVENT_SECRET pair,
+ * or ON_EVENT_TARGETS = JSON [{ "url", "secret", "pubkey"? }] where "pubkey" limits a target to
+ * one author's events (one relay, several sites).
+ */
+export function pingTargets(env) {
+  const out = [];
+  if (env.ON_EVENT_URL) out.push({ url: env.ON_EVENT_URL, secret: env.ON_EVENT_SECRET || '', pubkey: '' });
+  if (env.ON_EVENT_TARGETS) {
+    try {
+      for (const t of JSON.parse(env.ON_EVENT_TARGETS)) if (t && t.url) out.push({ url: t.url, secret: t.secret || '', pubkey: String(t.pubkey || '').toLowerCase() });
+    } catch {}
+  }
+  return out;
+}
+
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'accept, content-type', 'access-control-allow-methods': 'GET, OPTIONS' };
 
 export default {
@@ -30,7 +46,7 @@ export class Relay extends DurableObject {
     this.store = new RelayStore((sql, ...params) => this.ctx.storage.sql.exec(sql, ...params).toArray());
     this.handler = new RelayHandler(this.store, {
       allowed: new Set(String(env.ALLOWED_PUBKEYS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)),
-      onStored: e => { if (env.ON_EVENT_URL) this.ctx.waitUntil(this.ping(env, e)); }
+      onStored: e => { for (const t of pingTargets(env)) if (!t.pubkey || t.pubkey === e.pubkey) this.ctx.waitUntil(this.ping(t, e)); }
     });
     // Rehydrate subscriptions of hibernated connections.
     for (const ws of this.ctx.getWebSockets()) this.handler.open(this.wrap(ws));
@@ -69,9 +85,9 @@ export class Relay extends DurableObject {
   async webSocketClose(ws) { this.handler.close(this.wrap(ws)); }
   async webSocketError(ws) { this.handler.close(this.wrap(ws)); }
 
-  async ping(env, e) {
+  async ping(target, e) {
     try {
-      await fetch(env.ON_EVENT_URL, { method: 'POST', headers: { 'content-type': 'application/json', ...(env.ON_EVENT_SECRET ? { 'x-nostroid-refresh': env.ON_EVENT_SECRET } : {}) }, body: JSON.stringify({ id: e.id, kind: e.kind, pubkey: e.pubkey }) });
+      await fetch(target.url, { method: 'POST', headers: { 'content-type': 'application/json', ...(target.secret ? { 'x-nostroid-refresh': target.secret } : {}) }, body: JSON.stringify({ id: e.id, kind: e.kind, pubkey: e.pubkey }) });
     } catch {}
   }
 }

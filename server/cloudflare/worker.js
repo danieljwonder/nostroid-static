@@ -4,6 +4,7 @@ import { reduceEvents, outboxRelays } from '../../core/events.js';
 import { makeRelayClient, fetchAuthor } from '../../core/relay.js';
 import { respond } from '../../core/site.js';
 import { SiteStore } from './store.js';
+import { parsePrefixes, isPassthrough } from '../passthrough.js';
 import STYLES from '../../core/assets/styles.css';
 import THEME from '../../core/assets/theme.js?raw';
 
@@ -19,6 +20,12 @@ const STATIC = {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    // Paths owned by something else on this hostname (PASSTHROUGH_PREFIXES="/crypto,/shop").
+    if (isPassthrough(parsePrefixes(env.PASSTHROUGH_PREFIXES), url.pathname)) return fetch(request);
+    // NIP-05: NIP05_JSON = {"names":{"_":"<hex>"},"relays":{...}}
+    if (url.pathname === '/.well-known/nostr.json' && env.NIP05_JSON) {
+      return new Response(env.NIP05_JSON, { headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'cache-control': 'public, max-age=3600' } });
+    }
     if (request.method === 'POST' && url.pathname === '/_refresh') {
       const key = request.headers.get('x-nostroid-refresh') || '';
       if (!env.REFRESH_SECRET || key.length !== env.REFRESH_SECRET.length || key !== env.REFRESH_SECRET) return new Response(null, { status: 404 });
