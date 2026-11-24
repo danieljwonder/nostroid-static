@@ -83,6 +83,28 @@ ${html}
   links: ({ lists }, { h }) => h.html`<h1>Links</h1>
 ${h.join(lists.map(s => h.html`<section class="links"><h2>${s.title}</h2>${s.description ? h.html`<p>${s.description}</p>` : ''}<ul>${s.items.map(it => h.html`<li><a href="${it.url}" rel="noopener">${it.label}</a></li>`)}</ul></section>`), '\n')}`,
 
+  podcast: ({ title, description, image, feedHref, episodes }, { h, p }) => h.html`<section class="show">
+${image ? h.html`<img class="show-art" src="${image}" alt="" width="160" height="160">` : ''}
+<h1>${title}</h1>
+${description ? h.html`<p>${description}</p>` : ''}
+${feedHref ? h.html`<p class="meta"><a href="${feedHref}">Subscribe via RSS</a></p>` : ''}
+</section>
+<section class="episodes">${h.join(episodes.map(e => p.episodeCard(e)), '\n')}</section>`,
+
+  episodeCard: ({ title, href, published, description, duration }, { h }) => h.html`<article class="card episode">
+<h2><a href="${href}">${title}</a></h2>
+<p class="meta">${h.time(published)}${duration ? h.html` · ${h.duration(duration)}` : ''}</p>
+${description ? h.html`<p>${description}</p>` : ''}
+</article>`,
+
+  episode: ({ title, published, duration, audio, html, show, nostrUrl, newer, older }, { h, p }) => h.html`<article class="post episode-single">
+<header><p class="meta"><a href="${show.href}">${show.title}</a></p><h1>${title}</h1><p class="meta">${h.time(published)}${duration ? h.html` · ${h.duration(duration)}` : ''}</p></header>
+<audio controls preload="metadata" src="${audio[0].url}">${audio.map(a => h.html`<a href="${a.url}">Download (${a.type})</a>`)}</audio>
+<div class="prose">${html}</div>
+<p class="meta"><a href="${audio[0].url}" download>Download audio</a> · <a href="${nostrUrl}" rel="nofollow noopener">View on Nostr</a></p>
+${newer || older ? p.pager({ prev: newer ? { href: newer.href, label: newer.title } : null, next: older ? { href: older.href, label: older.title } : null }) : ''}
+</article>`,
+
   notFound: ({ homeHref }, { h }) => h.html`<h1>Not found</h1><p><a href="${homeHref}">Go home</a></p>`
 };
 

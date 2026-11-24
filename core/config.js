@@ -9,8 +9,29 @@ const DEFAULTS = {
   notes: { indexMinChars: 280, perPage: 20 },
   refreshSeconds: 120,
   poweredBy: true,
-  theme: { tokens: {}, dark: {} }
+  theme: { tokens: {}, dark: {} },
+  podcasts: []
 };
+
+const RESERVED_PATHS = new Set(['blog', 'notes', 'links', 'assets', 'feed.xml', 'sitemap.xml', 'robots.txt', '404.html', 'index.html', '_refresh']);
+
+/** NIP-F4 shows rendered under their own path: [{ pubkey, path: '/buidlberg/', feed?: '/buidlberg/feed.xml' }]. */
+export function checkPodcasts(list) {
+  if (list == null) return [];
+  if (!Array.isArray(list)) throw new Error('config.podcasts must be an array');
+  const seen = new Set();
+  return list.map((p, i) => {
+    const pubkey = normalizePubkey(p && p.pubkey);
+    const slug = String((p && p.path) || '').replace(/^\/+|\/+$/g, '');
+    if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(slug)) throw new Error(`config.podcasts[${i}].path must be a single lowercase segment like "/buidlberg/"`);
+    if (RESERVED_PATHS.has(slug)) throw new Error(`config.podcasts[${i}].path "/${slug}/" is reserved`);
+    if (seen.has(slug)) throw new Error(`config.podcasts: duplicate path "/${slug}/"`);
+    seen.add(slug);
+    const feed = p.feed ? String(p.feed) : '';
+    if (feed && !/^(\/|https:\/\/)/.test(feed)) throw new Error(`config.podcasts[${i}].feed must be a site path or https URL`);
+    return { pubkey, slug, path: `/${slug}/`, feed };
+  });
+}
 
 const TOKEN_NAME = /^[a-z][a-z0-9-]{0,63}$/;
 const TOKEN_BAD = /[;{}<>\\]|\/\*/;
@@ -47,7 +68,8 @@ export function resolveConfig(raw = {}) {
     site: { ...DEFAULTS.site, ...(raw.site || {}) },
     features: { ...DEFAULTS.features, ...(raw.features || {}) },
     notes: { ...DEFAULTS.notes, ...(raw.notes || {}) },
-    theme: { tokens: checkTokens(raw.theme?.tokens, 'theme.tokens'), dark: checkTokens(raw.theme?.dark, 'theme.dark') }
+    theme: { tokens: checkTokens(raw.theme?.tokens, 'theme.tokens'), dark: checkTokens(raw.theme?.dark, 'theme.dark') },
+    podcasts: checkPodcasts(raw.podcasts)
   };
   c.pubkey = normalizePubkey(raw.pubkey);
   if (!c.site.url) throw new Error('config.site.url is required (absolute URL used for canonical links)');
@@ -61,8 +83,12 @@ export function resolveConfig(raw = {}) {
   return c;
 }
 
+/** Every pubkey the site reads: the owner first, then any shows. */
+export const authorPubkeys = config => [config.pubkey, ...config.podcasts.map(p => p.pubkey)];
+
 export function contentKinds(config) {
   const k = new Set([0, 5, 10002]);
+  if (config.podcasts.length) { k.add(54); k.add(10154); }
   if (config.features.notes) k.add(1);
   if (config.features.longform) k.add(30023);
   if (config.features.links) k.add(30003);

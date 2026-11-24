@@ -16,7 +16,7 @@ No Node-only APIs. Runs unchanged in the browser, in a Worker and under `node --
 - `config.js`: validates and normalises the config (npub → hex, trailing slashes, defaults).
 - `relay.js`: relay client over an injected `connect(url)` so the browser's `WebSocket` and the Worker's `fetch` + `Upgrade: websocket` share one implementation. Timeouts, dedupe, EOSE handling.
 - `events.js`: signature verification, replaceable/addressable reduction, NIP-09 deletions, NIP-65 outbox extraction.
-- `model.js`: events → content model (profile, posts, notes by month, links). Slugs are deterministic from the event set, so there is no slug file to keep.
+- `model.js`: events → content model (profile, posts, notes by month, links, NIP-F4 shows with episodes). Slugs are deterministic from the event set, so there is no slug file to keep.
 - `render/`: pure functions from model to HTML strings. `routes.js` maps a path to a page and builds the view-models; `partials.js` holds the default markup; `theme.js` resolves a theme (partial overrides, colour scheme) and turns config tokens into CSS; `layout.js` holds the SEO contract (title, description, canonical, Open Graph, JSON-LD) in one place, out of a theme's reach. See `THEMES.md`.
 - `site.js`: `respond(events, config, path, { theme })` → `{ status, contentType, body }`. The single entry point both runtimes call.
 

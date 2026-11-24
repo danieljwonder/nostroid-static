@@ -1,5 +1,5 @@
 // Nostroid Static, browser mode. Reads relays, verifies, renders. No server needed.
-import { resolveConfig, contentKinds } from '../core/config.js';
+import { resolveConfig, contentKinds, authorPubkeys } from '../core/config.js';
 import { reduceEvents, outboxRelays } from '../core/events.js';
 import { makeRelayClient, fetchAuthor } from '../core/relay.js';
 import { buildModel } from '../core/model.js';
@@ -10,7 +10,7 @@ import THEME_SRC from 'nostroid:theme';
 
 const theme = resolveTheme(THEME_SRC);
 
-const CACHE_KEY = 'nostroid:events:v1';
+const CACHE_KEY = 'nostroid:events:v2';
 
 function currentPath(config) {
   // Hash routing (works on any host incl. IPFS gateways) with path routing as a fallback.
@@ -34,12 +34,13 @@ async function loadEvents(config, status) {
   const kinds = contentKinds(config);
   let relays = config.relays;
   status('Reading your relays…');
-  let raw = await fetchAuthor(client, relays, config.pubkey, kinds);
+  const authors = authorPubkeys(config);
+  let raw = await fetchAuthor(client, relays, authors, kinds);
   if (config.outbox) {
     const extra = outboxRelays(raw, config.pubkey).filter(r => !relays.includes(r));
-    if (extra.length) { relays = [...relays, ...extra]; raw = raw.concat(await fetchAuthor(client, extra, config.pubkey, kinds)); }
+    if (extra.length) { relays = [...relays, ...extra]; raw = raw.concat(await fetchAuthor(client, extra, authors, kinds)); }
   }
-  return reduceEvents(raw, config.pubkey).events;
+  return reduceEvents(raw, authors).events;
 }
 
 export async function start(rawConfig) {

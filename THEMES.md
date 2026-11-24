@@ -84,7 +84,7 @@ A theme folder can live anywhere, for example in your private site repo. `theme.
 A partial is `(vm, ctx) => html`.
 
 - `vm`: the view-model below. Strings are raw (unescaped) text.
-- `ctx.h`: helpers. `h.html` is a tagged template that **escapes every interpolation** unless it is already safe (`h.html` output, `h.raw()`, fields ending in `Html` or named `html`). Arrays are concatenated. `h.join(items, sep)`, `h.time(ts)` (a `<time>` element), `h.date(ts)`, `h.iso(ts)`, `h.esc(s)`.
+- `ctx.h`: helpers. `h.html` is a tagged template that **escapes every interpolation** unless it is already safe (`h.html` output, `h.raw()`, fields ending in `Html` or named `html`). Arrays are concatenated. `h.join(items, sep)`, `h.time(ts)` (a `<time>` element), `h.date(ts)`, `h.iso(ts)`, `h.duration(seconds)` ("5 min"), `h.esc(s)`.
 - `ctx.p`: all partials, already bound, so `p.postCard(vm)` uses the theme's version if it has one.
 - `ctx.config`: the resolved site config.
 
@@ -111,10 +111,13 @@ Themes cannot change the `<head>`: title, description, canonical, Open Graph and
 | `pager` | `{ prev, next }`, each `{ href, label } \| null` |
 | `archive` | `{ months: [month] }` |
 | `links` | `{ lists: [{ title, description, items: [{ url, label }] }] }` |
+| `podcast` | show vm + `{ episodes: [episodeCard vm] }`; show vm = `{ title, description, image, website, href, feedHref, npub, nostrUrl, hosts }` |
+| `episodeCard` | `{ title, href, published, description, image, audio: [{ url, type }], duration, nostrUrl }` |
+| `episode` | episodeCard vm + `{ html, show: show vm, newer, older }` (neighbours are episodeCard vms or `null`) |
 | `notFound` | `{ homeHref }` |
 
 `month` = `{ href, label, year, month, count }`. Timestamps are Unix seconds. Hrefs are already resolved for the site's base path.
 
 ### Styling contract
 
-The default partials use these classes, and themes that keep the default markup can rely on them: `skip`, `site-header`, `site-title`, `theme-toggle`, `site-footer`, `profile`, `avatar`, `section-title`, `card`, `meta`, `note`, `note-single`, `post`, `hero`, `prose`, `tags`, `pager`, `archive`, `links`, plus `main[data-mode="server|browser"]`. Renaming or removing one is a breaking change and gets called out in the changelog.
+The default partials use these classes, and themes that keep the default markup can rely on them: `skip`, `site-header`, `site-title`, `theme-toggle`, `site-footer`, `profile`, `avatar`, `section-title`, `card`, `meta`, `note`, `note-single`, `post`, `hero`, `prose`, `tags`, `pager`, `archive`, `links`, `show`, `show-art`, `episodes`, `episode`, `episode-single`, plus `main[data-mode="server|browser"]`. Renaming or removing one is a breaking change and gets called out in the changelog.

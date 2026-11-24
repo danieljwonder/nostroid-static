@@ -68,7 +68,17 @@ Bindings: Durable Object `RELAY` → class `Relay` (SQLite), `ALLOWED_PUBKEYS` (
 
 ## Configuration
 
-See `nostroid.config.example.js`. Required: `pubkey`, `relays`, `site.url`. Optional: `site.title/description/image/lang`, `nav`, `features` (notes, longform, links), `notes.indexMinChars` (shorter notes get `noindex`), `notes.perPage`, `refreshSeconds`, `poweredBy`, `theme.tokens` / `theme.dark` (design tokens).
+See `nostroid.config.example.js`. Required: `pubkey`, `relays`, `site.url`. Optional: `site.title/description/image/lang`, `nav`, `features` (notes, longform, links), `notes.indexMinChars` (shorter notes get `noindex`), `notes.perPage`, `refreshSeconds`, `poweredBy`, `theme.tokens` / `theme.dark` (design tokens), `podcasts` (NIP-F4 shows, below).
+
+## Podcasts (NIP-F4)
+
+A show is its own Nostr key. Give the site the show's pubkey and a path and it renders a show page and one page per episode, with `PodcastSeries` / `PodcastEpisode` structured data and the episodes in the sitemap:
+
+```js
+podcasts: [{ pubkey: "<show npub or hex>", path: "/myshow/", feed: "/myshow/feed.xml" }]
+```
+
+The site reads the show's `kind:10154` metadata and `kind:54` episodes (title, `audio`, optional `description`, `image`, `duration`, `published_at`; Markdown content as show notes). Episode slugs come from the NIP-73 `i` tag `podcast:item:guid:…` (last path segment) or the title. `feed` is only linked, not generated: keep publishing RSS from wherever you do today and pass its path through (`PASSTHROUGH_PREFIXES`) if it lives on the same host.
 
 ## Themes
 

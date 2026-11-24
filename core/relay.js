@@ -35,12 +35,12 @@ export function makeRelayClient(connect, { timeoutMs = 6000, log = () => {} } = 
   return { query, fetchAll };
 }
 
-/** Everything the site needs for one author, paginating backwards until relays run dry. */
+/** Everything the site needs for one author (or a list of them), paginating backwards until relays run dry. */
 export async function fetchAuthor(client, relays, pubkey, kinds, { since, pageLimit = 500, maxPages = 40 } = {}) {
   const all = new Map();
   let until;
   for (let i = 0; i < maxPages; i++) {
-    const f = { authors: [pubkey], kinds, limit: pageLimit };
+    const f = { authors: [].concat(pubkey), kinds, limit: pageLimit };
     if (since !== undefined) f.since = since;
     if (until !== undefined) f.until = until;
     const batch = await client.fetchAll(relays, [f]);

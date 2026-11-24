@@ -30,6 +30,8 @@ export function matchRoute(path) {
   if ((m = p.match(/^\/notes\/(\d{4})\/(\d{2})\/$/))) return { name: 'month', year: +m[1], month: +m[2] };
   if ((m = p.match(/^\/notes\/([0-9a-f]{16})\/$/))) return { name: 'note', id: m[1] };
   if (p === '/links/') return { name: 'links' };
+  if ((m = p.match(/^\/([a-z0-9][a-z0-9-]{0,63})\/$/)) && !['blog', 'notes', 'links'].includes(m[1])) return { name: 'podcast', show: m[1] };
+  if ((m = p.match(/^\/([a-z0-9][a-z0-9-]{0,63})\/([a-z0-9-]+)\/$/)) && !['blog', 'notes', 'links'].includes(m[1])) return { name: 'episode', show: m[1], slug: m[2] };
   if (p === '/sitemap.xml') return { name: 'sitemap' };
   if (p === '/feed.xml') return { name: 'feed' };
   if (p === '/robots.txt') return { name: 'robots' };
@@ -108,8 +110,35 @@ export function renderRoute(route, model, config, urls, theme = defaultTheme) {
       const lists = model.links.map(s => ({ title: s.title, description: s.description, items: s.items.map(it => ({ url: it.url, label: it.label || it.url.replace(/^https?:\/\//, '') })) }));
       return { path: '/links/', title: 'Links', ld: { '@type': 'CollectionPage', url: urls.abs('/links/') }, body: String(p.links({ lists })) };
     }
+    case 'podcast': {
+      const show = model.shows.find(s => s.slug === route.show);
+      if (!show) return { notFound: true };
+      const vm = showVm(show, urls);
+      const body = p.podcast({ ...vm, episodes: show.episodes.map(e => episodeVm(e, show, urls)) });
+      const ld = { '@type': 'PodcastSeries', name: show.title, description: show.description, url: urls.abs(show.path), ...(show.image ? { image: show.image } : {}), ...(vm.feedHref ? { webFeed: urls.abs(vm.feedHref) } : {}) };
+      return { path: show.path, title: show.title, description: show.description, image: show.image, ld, body: String(body), feed: vm.feedHref ? { href: vm.feedHref, title: show.title } : null };
+    }
+    case 'episode': {
+      const show = model.shows.find(s => s.slug === route.show);
+      const ep = show && show.episodes.find(e => e.slug === route.slug);
+      if (!ep) return { notFound: true };
+      const description = ep.description || truncate(ep.content.replace(/[#*_>`\[\]()!-]/g, ' '), 160);
+      const i = show.episodes.indexOf(ep);
+      const body = p.episode({ ...episodeVm(ep, show, urls), html: raw(renderMarkdown(ep.content)), show: showVm(show, urls), newer: i > 0 ? episodeVm(show.episodes[i - 1], show, urls) : null, older: i < show.episodes.length - 1 ? episodeVm(show.episodes[i + 1], show, urls) : null });
+      const ld = { '@type': 'PodcastEpisode', name: ep.title, description, datePublished: iso(ep.published), url: urls.abs(ep.path), ...(ep.duration ? { timeRequired: `PT${ep.duration}S` } : {}), ...(ep.image || show.image ? { image: ep.image || show.image } : {}),
+        associatedMedia: { '@type': 'MediaObject', contentUrl: ep.audio[0].url, encodingFormat: ep.audio[0].type }, partOfSeries: { '@type': 'PodcastSeries', name: show.title, url: urls.abs(show.path) } };
+      return { path: ep.path, title: ep.title, description, type: 'article', image: ep.image || show.image, ld, published: ep.published, modified: ep.updated, body: String(body), feed: show.feed ? { href: show.feed, title: show.title } : null };
+    }
     default: return { notFound: true };
   }
+}
+
+export function showVm(show, urls) {
+  return { title: show.title, description: show.description, image: show.image, website: show.website, href: urls.href(show.path), feedHref: show.feed ? (show.feed.startsWith('/') ? urls.href(show.feed) : show.feed) : '', npub: show.npub, nostrUrl: nostrUrl(show.npub), hosts: show.hosts };
+}
+
+export function episodeVm(ep, show, urls) {
+  return { title: ep.title, href: urls.href(ep.path), published: ep.published, description: ep.description, image: ep.image || show.image, audio: ep.audio, duration: ep.duration, nostrUrl: nostrUrl(ep.event.id) };
 }
 
 export function profileVm(model, config) {
@@ -137,6 +166,7 @@ export function sitemapEntries(model) {
     for (const n of model.notes) if (n.indexable) out.push({ path: n.path, lastmod: n.updated });
   }
   if (model.links.length) out.push({ path: '/links/', lastmod: Math.max(...model.links.map(s => s.updated)) });
+  for (const s of model.shows) { out.push({ path: s.path, lastmod: s.updated }); for (const e of s.episodes) out.push({ path: e.path, lastmod: e.updated }); }
   return out;
 }
 

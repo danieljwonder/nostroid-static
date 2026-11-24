@@ -15,6 +15,7 @@ export function navItems(config, model) {
   if (model.posts.length) items.push({ label: 'Blog', href: '/blog/' });
   if (model.notes.length) items.push({ label: 'Notes', href: '/notes/' });
   if (model.links.length) items.push({ label: 'Links', href: '/links/' });
+  for (const s of model.shows) items.push({ label: s.title, href: s.path });
   return items;
 }
 
@@ -26,7 +27,7 @@ export function personLd(model, config, urls) {
 }
 
 /** <head> contents + body shell. The SEO contract lives here, once. */
-export function head({ config, model, urls, path, title, description, type = 'website', image, ld, noindex = false, published, modified, prev, next }) {
+export function head({ config, model, urls, path, title, description, type = 'website', image, ld, noindex = false, published, modified, prev, next, feed }) {
   const site = config.site;
   const siteTitle = site.title || model.profile.name;
   const fullTitle = title && title !== siteTitle ? `${title} · ${siteTitle}` : siteTitle;
@@ -47,7 +48,7 @@ ${noindex ? '<meta name="robots" content="noindex, follow">\n' : ''}${prev ? `<l
 <meta property="og:site_name" content="${esc(siteTitle)}">
 ${img ? `<meta property="og:image" content="${esc(img)}">\n` : ''}<meta name="twitter:card" content="${img ? 'summary_large_image' : 'summary'}">
 ${published ? `<meta property="article:published_time" content="${iso(published)}">\n` : ''}${modified ? `<meta property="article:modified_time" content="${iso(modified)}">\n` : ''}<link rel="alternate" type="application/atom+xml" title="${esc(siteTitle)}" href="${esc(urls.href('/feed.xml'))}">
-<link rel="stylesheet" href="${esc(urls.href('/assets/styles.css'))}">
+${feed ? `<link rel="alternate" type="application/rss+xml" title="${esc(feed.title)}" href="${esc(feed.href)}">\n` : ''}<link rel="stylesheet" href="${esc(urls.href('/assets/styles.css'))}">
 ${tokens ? `<style id="nostroid-tokens">\n${tokens}\n</style>\n` : ''}${ldBlock}`;
 }
 

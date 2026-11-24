@@ -1,5 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
-import { resolveConfig, contentKinds } from '../../core/config.js';
+import { resolveConfig, contentKinds, authorPubkeys } from '../../core/config.js';
 import { reduceEvents, outboxRelays } from '../../core/events.js';
 import { makeRelayClient, fetchAuthor } from '../../core/relay.js';
 import { respond } from '../../core/site.js';
@@ -103,12 +103,13 @@ export class SiteCache extends DurableObject {
       const last = Number(this.store.meta('lastSync') || 0);
       const since = full || !last ? undefined : Math.max(0, last - 3600);
       let relays = this.config.relays;
-      let raw = await fetchAuthor(client, relays, this.config.pubkey, kinds, { since });
+      const authors = authorPubkeys(this.config);
+      let raw = await fetchAuthor(client, relays, authors, kinds, { since });
       if (this.config.outbox) {
         const known = outboxRelays(this.store.allEvents().concat(raw), this.config.pubkey).filter(r => !relays.includes(r));
-        if (known.length) raw = raw.concat(await fetchAuthor(client, known, this.config.pubkey, kinds, { since }));
+        if (known.length) raw = raw.concat(await fetchAuthor(client, known, authors, kinds, { since }));
       }
-      const merged = reduceEvents(this.store.allEvents().concat(raw), this.config.pubkey);
+      const merged = reduceEvents(this.store.allEvents().concat(raw), authors);
       const changed = this.store.replaceAll(merged.events);
       this.store.setMeta('lastSync', started);
       if (changed) await this.purgeEdge();

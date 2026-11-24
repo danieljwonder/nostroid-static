@@ -2,7 +2,8 @@ import { html, raw, join, esc, iso, humanDate } from './html.js';
 import { partials as defaults, PARTIAL_NAMES } from './partials.js';
 
 const time = ts => raw(`<time datetime="${iso(ts)}">${humanDate(ts)}</time>`);
-export const helpers = { html, raw, join, esc, time, date: humanDate, iso };
+const duration = s => { s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? `${h} h ${m} min` : m ? `${m} min` : `${s} s`; };
+export const helpers = { html, raw, join, esc, time, date: humanDate, iso, duration };
 
 /**
  * Theme object -> resolved theme. A theme is { name, version, tokens?, partials? }.

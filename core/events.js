@@ -35,10 +35,11 @@ export function newer(a, b) {
  * Pure; the same input always gives the same output.
  */
 export function reduceEvents(events, owner, { verify = verifyEvent } = {}) {
+  const owners = new Set([].concat(owner));
   const byKey = new Map();
   const rejected = [];
   for (const raw of events) {
-    if (!wellFormed(raw) || raw.pubkey !== owner) { rejected.push(raw); continue; }
+    if (!wellFormed(raw) || !owners.has(raw.pubkey)) { rejected.push(raw); continue; }
     const e = canonical(raw);
     if (!verify(e)) { rejected.push(raw); continue; }
     const k = eventKey(e);
@@ -47,8 +48,8 @@ export function reduceEvents(events, owner, { verify = verifyEvent } = {}) {
   }
   for (const del of [...byKey.values()].filter(e => e.kind === 5)) {
     for (const t of del.tags) {
-      if (t[0] === 'e') for (const [k, ev] of byKey) { if (ev.id === t[1] && ev.kind !== 5) byKey.delete(k); }
-      else if (t[0] === 'a') { const ev = byKey.get(t[1]); if (ev && ev.created_at <= del.created_at) byKey.delete(t[1]); }
+      if (t[0] === 'e') for (const [k, ev] of byKey) { if (ev.id === t[1] && ev.kind !== 5 && ev.pubkey === del.pubkey) byKey.delete(k); }
+      else if (t[0] === 'a') { const ev = byKey.get(t[1]); if (ev && ev.pubkey === del.pubkey && ev.created_at <= del.created_at) byKey.delete(t[1]); }
     }
   }
   const out = [...byKey.values()].sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? -1 : 1));
