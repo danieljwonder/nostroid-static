@@ -68,7 +68,11 @@ Bindings: Durable Object `RELAY` → class `Relay` (SQLite), `ALLOWED_PUBKEYS` (
 
 ## Configuration
 
-See `nostroid.config.example.js`. Required: `pubkey`, `relays`, `site.url`. Optional: `site.title/description/image/lang`, `nav`, `features` (notes, longform, links), `notes.indexMinChars` (shorter notes get `noindex`), `notes.perPage`, `refreshSeconds`, `poweredBy`.
+See `nostroid.config.example.js`. Required: `pubkey`, `relays`, `site.url`. Optional: `site.title/description/image/lang`, `nav`, `features` (notes, longform, links), `notes.indexMinChars` (shorter notes get `noindex`), `notes.perPage`, `refreshSeconds`, `poweredBy`, `theme.tokens` / `theme.dark` (design tokens).
+
+## Themes
+
+Restyle with tokens in the config, a `custom.css`, or a theme package that overrides individual templates. See [THEMES.md](THEMES.md); `themes/midnight/` is a working example.
 
 ## Development
 

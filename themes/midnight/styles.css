@@ -1,0 +1,11 @@
+/* Everything here lands in @layer theme: it beats core styles without !important. */
+:root, :root[data-theme] {
+  color-scheme: dark;
+  --bg: #0b0d12; --fg: #e8eaf0; --muted: #8a90a2; --line: #1e2330; --accent: #7aa2ff;
+  --font-heading: ui-serif, Georgia, serif;
+  --radius: 10px;
+}
+.site-header { border-bottom-color: transparent; }
+.site-title { letter-spacing: .02em; }
+.card { border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+.card-cover img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; margin-bottom: .75rem; }

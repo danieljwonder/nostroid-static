@@ -15,3 +15,15 @@ export function truncate(s, n) {
   const sp = cut.lastIndexOf(' ');
   return (sp > n * 0.6 ? cut.slice(0, sp) : cut).replace(/[\s.,;:!?-]+$/, '') + '…';
 }
+
+/** Markup that is already safe. Only html``, raw() and join() create it. */
+export class SafeHtml {
+  constructor(s) { this.s = s; }
+  toString() { return this.s; }
+}
+const part = v => (v == null || v === false ? '' : v instanceof SafeHtml ? v.s : Array.isArray(v) ? v.map(part).join('') : esc(v));
+/** Tagged template: every interpolation is escaped unless it is SafeHtml. Arrays are concatenated. */
+export const html = (strings, ...vals) => new SafeHtml(strings.reduce((a, s, i) => a + s + (i < vals.length ? part(vals[i]) : ''), ''));
+/** Trust a string as HTML. Use only for markup you produced (rendered Markdown/notes, fixed snippets). */
+export const raw = s => (s instanceof SafeHtml ? s : new SafeHtml(String(s ?? '')));
+export const join = (items, sep = '') => new SafeHtml(items.map(part).join(sep));

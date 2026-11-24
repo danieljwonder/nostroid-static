@@ -5,7 +5,10 @@ import { makeRelayClient, fetchAuthor } from '../../core/relay.js';
 import { respond } from '../../core/site.js';
 import { SiteStore } from './store.js';
 import { parsePrefixes, isPassthrough } from '../passthrough.js';
-import STYLES from '../../core/assets/styles.css';
+import { resolveTheme } from '../../core/render/theme.js';
+import STYLES from 'nostroid:styles';
+import THEME_SRC from 'nostroid:theme';
+import THEME_ASSETS from 'nostroid:assets';
 import THEME from '../../core/assets/theme.js?raw';
 
 function siteConfig(env) {
@@ -16,6 +19,11 @@ const STATIC = {
   '/assets/styles.css': () => new Response(STYLES, { headers: { 'content-type': 'text/css; charset=utf-8', 'cache-control': 'public, max-age=86400' } }),
   '/assets/theme.js': () => new Response(THEME, { headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=86400' } })
 };
+for (const a of THEME_ASSETS) {
+  const bytes = Uint8Array.from(atob(a.b64), c => c.charCodeAt(0));
+  STATIC[a.path] = () => new Response(bytes, { headers: { 'content-type': a.type, 'cache-control': 'public, max-age=86400', 'access-control-allow-origin': '*' } });
+}
+const SITE_THEME = resolveTheme(THEME_SRC);
 
 export default {
   async fetch(request, env, ctx) {
@@ -65,7 +73,7 @@ export class SiteCache extends DurableObject {
     }
     await this.ensureFresh();
     const events = this.store.allEvents();
-    const page = respond(events, this.config, url.pathname, { mode: 'server' });
+    const page = respond(events, this.config, url.pathname, { mode: 'server', theme: SITE_THEME });
     const headers = {
       'content-type': page.contentType,
       'cache-control': page.status === 200 ? `public, max-age=${Math.min(60, this.config.refreshSeconds)}, stale-while-revalidate=300` : 'public, max-age=30',

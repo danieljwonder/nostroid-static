@@ -1,4 +1,6 @@
-import { esc, jsonLd, iso } from './html.js';
+import { esc, jsonLd, iso, raw } from './html.js';
+import { defaultTheme, bindPartials, tokenCss } from './theme.js';
+import { profileVm } from './routes.js';
 
 export function makeUrls(config) {
   const base = config.basePath;
@@ -31,6 +33,7 @@ export function head({ config, model, urls, path, title, description, type = 'we
   const desc = description || site.description || model.profile.about.split('\n')[0] || '';
   const canonical = urls.abs(path);
   const img = image || site.image || model.profile.banner || model.profile.picture || '';
+  const tokens = tokenCss(config);
   const ldBlock = ld ? `<script type="application/ld+json">${jsonLd({ '@context': 'https://schema.org', ...ld })}</script>` : '';
   return `<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -45,31 +48,18 @@ ${noindex ? '<meta name="robots" content="noindex, follow">\n' : ''}${prev ? `<l
 ${img ? `<meta property="og:image" content="${esc(img)}">\n` : ''}<meta name="twitter:card" content="${img ? 'summary_large_image' : 'summary'}">
 ${published ? `<meta property="article:published_time" content="${iso(published)}">\n` : ''}${modified ? `<meta property="article:modified_time" content="${iso(modified)}">\n` : ''}<link rel="alternate" type="application/atom+xml" title="${esc(siteTitle)}" href="${esc(urls.href('/feed.xml'))}">
 <link rel="stylesheet" href="${esc(urls.href('/assets/styles.css'))}">
-${ldBlock}`;
+${tokens ? `<style id="nostroid-tokens">\n${tokens}\n</style>\n` : ''}${ldBlock}`;
 }
 
-export function shell({ config, model, urls, path, body, mode = 'server' }) {
-  const siteTitle = config.site.title || model.profile.name;
-  const nav = navItems(config, model)
-    .map(i => {
-      const h = /^https?:\/\//.test(i.href) ? i.href : urls.href(i.href);
-      const current = !/^https?:\/\//.test(i.href) && (i.href === path || (i.href !== '/' && path.startsWith(i.href)));
-      return `<a href="${esc(h)}"${current ? ' aria-current="page"' : ''}>${esc(i.label)}</a>`;
-    })
-    .join('');
-  const powered = config.poweredBy ? ` · Powered by <a href="https://nostroid.com">Nostroid</a>` : '';
-  return `<a class="skip" href="#main">Skip to content</a>
-<header class="site-header">
-<a class="site-title" href="${esc(urls.href('/'))}">${esc(siteTitle)}</a>
-<nav aria-label="Main">${nav}</nav>
-<button class="theme-toggle" type="button" hidden aria-label="Toggle dark mode">◐</button>
-</header>
-<main id="main" data-mode="${mode}">
-${body}
-</main>
-<footer class="site-footer">
-<p><a href="https://njump.me/${esc(model.profile.npub)}" rel="me">${esc(model.profile.name)} on Nostr</a>${powered}</p>
-</footer>`;
+export function shell({ config, model, urls, path, body, mode = 'server', theme = defaultTheme }) {
+  const p = bindPartials(theme, config);
+  const nav = navItems(config, model).map(i => {
+    const external = /^https?:\/\//.test(i.href);
+    return { label: i.label, href: external ? i.href : urls.href(i.href), external, current: !external && (i.href === path || (i.href !== '/' && path.startsWith(i.href))) };
+  });
+  const header = p.header({ siteTitle: config.site.title || model.profile.name, homeHref: urls.href('/'), nav, path, schemeToggle: theme.scheme === 'auto' });
+  const footer = p.footer({ profile: profileVm(model, config), poweredBy: !!config.poweredBy });
+  return String(p.layout({ header, body: raw(body), footer, mode, path }));
 }
 
 export function document({ config, scripts = [], ...rest }) {

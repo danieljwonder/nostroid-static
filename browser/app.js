@@ -5,6 +5,10 @@ import { makeRelayClient, fetchAuthor } from '../core/relay.js';
 import { buildModel } from '../core/model.js';
 import { makeUrls, shell } from '../core/render/layout.js';
 import { matchRoute, renderRoute, notFoundRoute } from '../core/render/routes.js';
+import { resolveTheme, tokenCss } from '../core/render/theme.js';
+import THEME_SRC from 'nostroid:theme';
+
+const theme = resolveTheme(THEME_SRC);
 
 const CACHE_KEY = 'nostroid:events:v1';
 
@@ -42,6 +46,8 @@ export async function start(rawConfig) {
   const config = resolveConfig(rawConfig);
   const urls = makeUrls(config);
   const app = document.getElementById('app');
+  const tokens = tokenCss(config);
+  if (tokens) { const st = document.createElement('style'); st.id = 'nostroid-tokens'; st.textContent = tokens; document.head.appendChild(st); }
   const status = msg => { const el = document.getElementById('status'); if (el) el.textContent = msg; };
 
   let events = [];
@@ -51,11 +57,11 @@ export async function start(rawConfig) {
     const model = buildModel(events, config);
     const path = currentPath(config);
     const route = matchRoute(path);
-    const page = route ? renderRoute(route, model, config, urls) : { notFound: true };
-    const p = page.notFound ? notFoundRoute(urls) : page;
+    const page = route ? renderRoute(route, model, config, urls, theme) : { notFound: true };
+    const p = page.notFound ? notFoundRoute(urls, config, theme) : page;
     const siteTitle = config.site.title || model.profile.name;
     document.title = p.title && p.title !== siteTitle ? `${p.title} · ${siteTitle}` : siteTitle;
-    app.innerHTML = shell({ config, model, urls, path, body: p.body, mode: 'browser' });
+    app.innerHTML = shell({ config, model, urls, path, body: p.body, mode: 'browser', theme });
     useHashLinks(app, config);
     window.scrollTo(0, 0);
   }

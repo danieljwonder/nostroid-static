@@ -1,28 +1,20 @@
-import { esc, truncate, humanDate, iso } from './html.js';
+import { esc, truncate, humanDate, iso, raw } from './html.js';
+import { defaultTheme, bindPartials } from './theme.js';
 import { renderMarkdown, renderNote } from './content.js';
 import { personLd } from './layout.js';
 import { monthPath } from '../model.js';
 
-const time = ts => `<time datetime="${iso(ts)}">${humanDate(ts)}</time>`;
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 export const monthName = (y, m) => `${MONTHS[m - 1]} ${y}`;
 
 export const noteTitle = n => truncate(n.text, 60) || `Note from ${humanDate(n.published)}`;
 
-export function postCard(p, urls) {
-  return `<article class="card">
-<h2><a href="${esc(urls.href(p.path))}">${esc(p.title)}</a></h2>
-<p class="meta">${time(p.published)}</p>
-${p.summary ? `<p>${esc(p.summary)}</p>` : ''}
-</article>`;
-}
+const nostrUrl = id => `https://njump.me/${id}`;
 
-export function noteCard(n, urls) {
-  return `<article class="note">
-${renderNote(n.content)}
-<p class="meta"><a href="${esc(urls.href(n.path))}">${time(n.published)}</a></p>
-</article>`;
-}
+/* View-models: the data contract partials receive (documented in THEMES.md). */
+export const postCardVm = (p, urls) => ({ title: p.title, href: urls.href(p.path), published: p.published, updated: p.updated, summary: p.summary, image: p.image, topics: p.topics });
+export const noteCardVm = (n, urls) => ({ html: raw(renderNote(n.content)), text: n.text, href: urls.href(n.path), published: n.published });
+const monthVm = (m, urls) => ({ href: urls.href(m.path), label: monthName(m.year, m.month), year: m.year, month: m.month, count: m.notes.length });
 
 /**
  * Match a path to a route. Returns { name, params } or null.
@@ -46,85 +38,93 @@ export function matchRoute(path) {
 
 /**
  * Render one route from the model. Returns { body, title, description, ld, ... } for the layout,
- * or { notFound: true }. Pure.
+ * or { notFound: true }. Pure. Markup comes from the theme's partials; metadata and SEO stay here.
  */
-export function renderRoute(route, model, config, urls) {
+export function renderRoute(route, model, config, urls, theme = defaultTheme) {
   const person = personLd(model, config, urls);
   const prof = model.profile;
   const perPage = config.notes.perPage;
+  const p = bindPartials(theme, config);
 
   switch (route.name) {
     case 'home': {
-      const body = `<section class="profile">
-${prof.picture ? `<img class="avatar" src="${esc(prof.picture)}" alt="" width="96" height="96">` : ''}
-<h1>${esc(config.site.title || prof.name)}</h1>
-${prof.about ? renderNote(prof.about) : ''}
-${prof.website ? `<p><a href="${esc(prof.website)}" rel="me">${esc(prof.website.replace(/^https?:\/\//, ''))}</a></p>` : ''}
-</section>
-${model.posts.length ? `<section><h2 class="section-title">Latest writing</h2>${model.posts.slice(0, 5).map(p => postCard(p, urls)).join('\n')}${model.posts.length > 5 ? `<p><a href="${esc(urls.href('/blog/'))}">All posts →</a></p>` : ''}</section>` : ''}
-${model.notes.length ? `<section><h2 class="section-title">Recent notes</h2>${model.notes.slice(0, 10).map(n => noteCard(n, urls)).join('\n')}<p><a href="${esc(urls.href('/notes/'))}">All notes →</a></p></section>` : ''}`;
-      return { path: '/', title: '', type: 'profile', ld: { '@type': 'ProfilePage', mainEntity: person, url: urls.abs('/') }, body };
+      const body = p.home({
+        profile: profileVm(model, config),
+        posts: model.posts.slice(0, 5).map(x => postCardVm(x, urls)),
+        allPostsHref: model.posts.length > 5 ? urls.href('/blog/') : null,
+        notes: model.notes.slice(0, 10).map(x => noteCardVm(x, urls)),
+        allNotesHref: urls.href('/notes/')
+      });
+      return { path: '/', title: '', type: 'profile', ld: { '@type': 'ProfilePage', mainEntity: person, url: urls.abs('/') }, body: String(body) };
     }
     case 'blog': {
       if (!model.posts.length) return { notFound: true };
-      return { path: '/blog/', title: 'Blog', ld: { '@type': 'CollectionPage', url: urls.abs('/blog/') }, body: `<h1>Blog</h1>\n${model.posts.map(p => postCard(p, urls)).join('\n')}` };
+      return { path: '/blog/', title: 'Blog', ld: { '@type': 'CollectionPage', url: urls.abs('/blog/') }, body: String(p.blog({ posts: model.posts.map(x => postCardVm(x, urls)) })) };
     }
     case 'post': {
-      const p = model.posts.find(x => x.slug === route.slug);
-      if (!p) return { notFound: true };
-      const description = p.summary || truncate(p.content.replace(/[#*_>`\[\]()!-]/g, ' '), 160);
-      const body = `<article class="post">
-<header><h1>${esc(p.title)}</h1><p class="meta">${time(p.published)}${p.updated > p.published + 86400 ? ` · updated ${time(p.updated)}` : ''}</p></header>
-${p.image ? `<img class="hero" src="${esc(p.image)}" alt="" loading="eager">` : ''}
-<div class="prose">${renderMarkdown(p.content)}</div>
-${p.topics.length ? `<p class="tags">${p.topics.map(t => `<span>#${esc(t)}</span>`).join(' ')}</p>` : ''}
-<p class="meta"><a href="https://njump.me/${esc(p.event.id)}" rel="nofollow noopener">View on Nostr</a></p>
-</article>`;
-      const ld = { '@type': 'BlogPosting', headline: p.title, description, datePublished: iso(p.published), dateModified: iso(p.updated), url: urls.abs(p.path), mainEntityOfPage: urls.abs(p.path), author: person, ...(p.image ? { image: p.image } : {}), ...(p.topics.length ? { keywords: p.topics.join(', ') } : {}) };
-      return { path: p.path, title: p.title, description, type: 'article', image: p.image, ld, published: p.published, modified: p.updated, body };
+      const post = model.posts.find(x => x.slug === route.slug);
+      if (!post) return { notFound: true };
+      const description = post.summary || truncate(post.content.replace(/[#*_>`\[\]()!-]/g, ' '), 160);
+      const body = p.post({
+        ...postCardVm(post, urls),
+        updated: post.updated > post.published + 86400 ? post.updated : null,
+        html: raw(renderMarkdown(post.content)),
+        nostrUrl: nostrUrl(post.event.id)
+      });
+      const ld = { '@type': 'BlogPosting', headline: post.title, description, datePublished: iso(post.published), dateModified: iso(post.updated), url: urls.abs(post.path), mainEntityOfPage: urls.abs(post.path), author: person, ...(post.image ? { image: post.image } : {}), ...(post.topics.length ? { keywords: post.topics.join(', ') } : {}) };
+      return { path: post.path, title: post.title, description, type: 'article', image: post.image, ld, published: post.published, modified: post.updated, body: String(body) };
     }
     case 'notes': {
       if (!model.notes.length) return { notFound: true };
       const latest = model.notes.slice(0, perPage);
       const older = model.months.find(m => m.notes.some(n => !latest.includes(n)));
-      const body = `<h1>Notes</h1>\n${latest.map(n => noteCard(n, urls)).join('\n')}\n${older ? `<nav class="pager" aria-label="Archive"><span></span><a rel="next" href="${esc(urls.href(older.path))}">Older: ${monthName(older.year, older.month)} →</a></nav>` : ''}
-${archiveList(model, urls)}`;
-      return { path: '/notes/', title: 'Notes', ld: { '@type': 'CollectionPage', url: urls.abs('/notes/') }, next: older ? older.path : null, body };
+      const body = p.notes({ notes: latest.map(x => noteCardVm(x, urls)), older: older ? monthVm(older, urls) : null, months: model.months.map(m => monthVm(m, urls)) });
+      return { path: '/notes/', title: 'Notes', ld: { '@type': 'CollectionPage', url: urls.abs('/notes/') }, next: older ? older.path : null, body: String(body) };
     }
     case 'month': {
       const i = model.months.findIndex(m => m.year === route.year && m.month === route.month);
       if (i < 0) return { notFound: true };
       const m = model.months[i];
       const newer = model.months[i - 1], older = model.months[i + 1];
-      const body = `<h1>Notes <small>${monthName(m.year, m.month)}</small></h1>\n${m.notes.map(n => noteCard(n, urls)).join('\n')}
-<nav class="pager" aria-label="Archive">${newer ? `<a rel="prev" href="${esc(urls.href(newer.path))}">← ${monthName(newer.year, newer.month)}</a>` : `<a rel="prev" href="${esc(urls.href('/notes/'))}">← Latest</a>`}${older ? `<a rel="next" href="${esc(urls.href(older.path))}">${monthName(older.year, older.month)} →</a>` : '<span></span>'}</nav>`;
-      return { path: m.path, title: `Notes, ${monthName(m.year, m.month)}`, ld: { '@type': 'CollectionPage', url: urls.abs(m.path) }, prev: newer ? newer.path : '/notes/', next: older ? older.path : null, body };
+      const body = p.month({
+        label: monthName(m.year, m.month),
+        notes: m.notes.map(x => noteCardVm(x, urls)),
+        newer: newer ? monthVm(newer, urls) : { href: urls.href('/notes/'), label: 'Latest' },
+        older: older ? monthVm(older, urls) : null
+      });
+      return { path: m.path, title: `Notes, ${monthName(m.year, m.month)}`, ld: { '@type': 'CollectionPage', url: urls.abs(m.path) }, prev: newer ? newer.path : '/notes/', next: older ? older.path : null, body: String(body) };
     }
     case 'note': {
       const n = model.notes.find(x => x.event.id.startsWith(route.id));
       if (!n) return { notFound: true };
       const title = noteTitle(n);
       const description = truncate(n.text, 160) || title;
-      const body = `<article class="note note-single">\n${renderNote(n.content)}\n<p class="meta">${time(n.published)} · <a href="${esc(urls.href(monthPath(n.year, n.month)))}">${monthName(n.year, n.month)}</a> · <a href="https://njump.me/${esc(n.event.id)}" rel="nofollow noopener">view on Nostr</a></p>\n</article>`;
+      const body = p.note({ ...noteCardVm(n, urls), title, month: { href: urls.href(monthPath(n.year, n.month)), label: monthName(n.year, n.month) }, nostrUrl: nostrUrl(n.event.id) });
       const ld = { '@type': 'SocialMediaPosting', headline: title, articleBody: n.text, datePublished: iso(n.published), url: urls.abs(n.path), author: person };
-      return { path: n.path, title, description, type: 'article', ld, noindex: !n.indexable, published: n.published, body };
+      return { path: n.path, title, description, type: 'article', ld, noindex: !n.indexable, published: n.published, body: String(body) };
     }
     case 'links': {
       if (!model.links.length) return { notFound: true };
-      const body = `<h1>Links</h1>\n${model.links.map(s => `<section class="links"><h2>${esc(s.title)}</h2>${s.description ? `<p>${esc(s.description)}</p>` : ''}<ul>${s.items.map(it => `<li><a href="${esc(it.url)}" rel="noopener">${esc(it.label || it.url.replace(/^https?:\/\//, ''))}</a></li>`).join('')}</ul></section>`).join('\n')}`;
-      return { path: '/links/', title: 'Links', ld: { '@type': 'CollectionPage', url: urls.abs('/links/') }, body };
+      const lists = model.links.map(s => ({ title: s.title, description: s.description, items: s.items.map(it => ({ url: it.url, label: it.label || it.url.replace(/^https?:\/\//, '') })) }));
+      return { path: '/links/', title: 'Links', ld: { '@type': 'CollectionPage', url: urls.abs('/links/') }, body: String(p.links({ lists })) };
     }
     default: return { notFound: true };
   }
 }
 
-function archiveList(model, urls) {
-  if (model.months.length < 2) return '';
-  return `<section class="archive"><h2 class="section-title">Archive</h2><ul>${model.months.map(m => `<li><a href="${esc(urls.href(m.path))}">${monthName(m.year, m.month)}</a> <span class="meta">${m.notes.length}</span></li>`).join('')}</ul></section>`;
+export function profileVm(model, config) {
+  const prof = model.profile;
+  return {
+    name: prof.name, title: config.site.title || prof.name, picture: prof.picture, banner: prof.banner,
+    about: prof.about, aboutHtml: prof.about ? raw(renderNote(prof.about)) : null,
+    website: prof.website, websiteLabel: prof.website ? prof.website.replace(/^https?:\/\//, '') : '',
+    npub: prof.npub, nostrUrl: nostrUrl(prof.npub)
+  };
 }
 
-export function notFoundRoute(urls) {
-  return { path: '/404.html', title: 'Not found', noindex: true, body: `<h1>Not found</h1><p><a href="${esc(urls.href('/'))}">Go home</a></p>` };
+export function notFoundRoute(urls, config, theme = defaultTheme) {
+  const p = bindPartials(theme, config);
+  return { path: '/404.html', title: 'Not found', noindex: true, body: String(p.notFound({ homeHref: urls.href('/') })) };
 }
 
 /** Every indexable URL with lastmod, for the sitemap. */
