@@ -146,7 +146,7 @@ export function profileVm(model, config) {
   return {
     name: prof.name, title: config.site.title || prof.name, picture: prof.picture, banner: prof.banner,
     about: prof.about, aboutHtml: prof.about ? raw(renderNote(prof.about)) : null,
-    website: prof.website, websiteLabel: prof.website ? prof.website.replace(/^https?:\/\//, '') : '',
+    website: prof.website, websiteLabel: prof.website ? prof.website.replace(/^https?:\/\//, '').replace(/\/$/, '') : '',
     npub: prof.npub, nostrUrl: nostrUrl(prof.npub)
   };
 }
