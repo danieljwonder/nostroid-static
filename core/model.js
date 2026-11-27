@@ -115,7 +115,7 @@ export function buildModel(events, config) {
     .filter(s => s.items.length)
     .sort((a, b) => (a.title < b.title ? -1 : a.title > b.title ? 1 : 0));
 
-  const shows = config.podcasts.map(p => buildShow(p, events.filter(e => e.pubkey === p.pubkey)));
+  const shows = config.podcasts.map(p => buildShow(p, events.filter(e => e.pubkey === p.pubkey), config.site.url));
 
   return { profile, posts, notes, months, links, shows };
 }
@@ -123,7 +123,7 @@ export function buildModel(events, config) {
 const https = v => (/^https:\/\//.test(v || '') ? v : '');
 
 /** NIP-F4: kind 10154 show metadata + kind 54 episodes for one show pubkey. */
-export function buildShow(p, theirs) {
+export function buildShow(p, theirs, siteUrl = '') {
   const meta = theirs.find(e => e.kind === 10154);
   const hosts = meta ? meta.tags.filter(t => t[0] === 'p' && /^[0-9a-f]{64}$/.test(t[1] || '')).map(t => ({ pubkey: t[1], role: t[2] || '' })) : [];
   const episodes = theirs
@@ -146,12 +146,28 @@ export function buildShow(p, theirs) {
       };
     })
     .sort((a, b) => a.published - b.published || (a.event.id < b.event.id ? -1 : 1));
-  // Slug: last segment of the item guid when it is readable, else the title. Older episode keeps its slug on collision.
+  // Slug: an episode whose `r` (website) tag is a page on this site under the show path picks its own slug.
+  // Otherwise: last segment of the item guid when it is readable, else the title. Older episode keeps its slug
+  // on collision.
   const taken = new Set();
-  for (const ep of episodes) {
+  const reserved = b => (b === 'feed.xml' || b === 'media' || b === 'assets' ? `${b}-episode` : b);
+  const derived = ep => {
     const tail = ep.guid.split('/').filter(Boolean).pop() || '';
-    let base = (tail && !looksRandom(tail) && slugify(tail)) || slugify(ep.title) || 'episode';
-    if (base === 'feed.xml' || base === 'media' || base === 'assets') base = `${base}-episode`;
+    return reserved((tail && !looksRandom(tail) && slugify(tail)) || slugify(ep.title) || 'episode');
+  };
+  const declared = ep => {
+    if (!siteUrl) return '';
+    const base = new URL(p.path.replace(/^\//, ''), siteUrl).href;
+    for (const t of ep.event.tags) {
+      if (t[0] !== 'r' || typeof t[1] !== 'string' || !t[1].startsWith(base)) continue;
+      const m = t[1].slice(base.length).match(/^([a-z0-9][a-z0-9-]{0,79})\/?$/);
+      if (m && reserved(m[1]) === m[1]) return m[1];
+    }
+    return '';
+  };
+  for (const ep of episodes) {
+    const own = declared(ep);
+    const base = own || derived(ep);
     let s = base;
     if (taken.has(s)) s = `${base}-${ep.event.id.slice(0, 6)}`;
     taken.add(s);

@@ -93,3 +93,22 @@ test('routes: show and episode pages, nav, sitemap, JSON-LD, RSS link; unknown s
   const plain = respond(events.filter(e => e.pubkey === me.pk), config(me.pk), '/buidlberg/');
   assert.equal(plain.status, 404);
 });
+
+test('episode slug: r tag under this site\'s show path wins; foreign or malformed r tags fall back to the guid', () => {
+  const me = keypair(), show = keypair();
+  const cfg = config(me.pk, { podcasts: [{ pubkey: show.pk, path: '/buidlberg/' }] });
+  const site = cfg.site.url;
+  const ep = (r, guid, at) => sign(show.sk, 54, '', [['title', 'T' + at], ['audio', 'https://cdn.example/a.mp3'], ['i', `podcast:item:guid:${guid}`], ...(r ? [['r', r]] : [])], at);
+  const ev = [
+    ep(new URL('buidlberg/31-forged-routes/', site).href, 'https://x.example/e/2026-11-27', 10),
+    ep('https://elsewhere.example/buidlberg/hijack/', 'https://x.example/e/2026-11-26', 20),
+    ep(new URL('buidlberg/Bad Slug/', site).href, 'https://x.example/e/2026-11-25', 30),
+    ep(new URL('buidlberg/feed.xml', site).href, 'https://x.example/e/2026-11-24', 40),
+    ep(null, 'https://x.example/e/2026-11-23', 50)
+  ];
+  const s = buildModel(reduceEvents(ev, [me.pk, show.pk]).events, cfg).shows[0];
+  assert.deepEqual(s.episodes.map(e => e.slug).sort(), ['2026-11-23', '2026-11-24', '2026-11-25', '2026-11-26', '31-forged-routes'].sort());
+  const page = respond(ev, cfg, '/buidlberg/31-forged-routes/');
+  assert.equal(page.status, 200);
+  assert.equal(respond(ev, cfg, '/buidlberg/2026-11-27/').status, 404);
+});
